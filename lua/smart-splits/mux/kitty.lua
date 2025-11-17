@@ -2,6 +2,7 @@ local lazy = require('smart-splits.lazy')
 local log = lazy.require_on_exported_call('smart-splits.log') --[[@as SmartSplitsLogger]]
 local utils = lazy.require_on_exported_call('smart-splits.utils')
 local Direction = require('smart-splits.types').Direction
+local api = require('smart-splits.mux.kitty_api')
 
 local dir_keys_kitty = {
   [Direction.left] = 'left',
@@ -10,35 +11,12 @@ local dir_keys_kitty = {
   [Direction.down] = 'bottom',
 }
 
-local layout_details = {}
-
-local function layout_details_callback(result)
-  if result.code ~= 0 then
-    log.debug('Error executing async system : %s', result.stderr or '')
-    return
-  end
-
-  log.debug('Received output from async system with size: %s', #result.stdout or '')
-  layout_details = vim.json.decode(result.stdout)
-end
-
-local function kitty_exec(args, callback)
-  local arguments = vim.deepcopy(args)
-  table.insert(arguments, 1, 'kitty')
-  table.insert(arguments, 2, '@')
-  local password = vim.g.smart_splits_kitty_password or require('smart-splits.config').kitty_password or ''
-  if #password > 0 then
-    table.insert(arguments, 3, '--password')
-    table.insert(arguments, 4, password)
-  end
-  return require('smart-splits.utils').system(arguments, callback)
-end
-
 local function get_active_tab()
+  local layout_details = api.get_data()
   if #layout_details == 0 then
     return nil
   end
-  log.trace('ReUsing "cached" layout details..')
+
   local active_client = utils.tbl_find(layout_details, function(client)
     -- if we're doing a keymap, obviously the terminal must be focused also
     return client.is_active and client.is_focused
@@ -109,7 +87,7 @@ function M.next_pane(direction)
   end
 
   direction = dir_keys_kitty[direction] ---@diagnostic disable-line
-  local _, code = kitty_exec({ 'kitten', 'neighboring_window.py', direction })
+  local code = api.kitty_cmd('neighboring_window', direction)
   return code == 0
 end
 
@@ -118,7 +96,7 @@ function M.resize_pane(direction, amount)
     return false
   end
 
-  local code = kitty_exec({ 'kitten', 'relative_resize.py', direction, amount })
+  local code = api.kitty_cmd('resize-window', direction, amount)
 
   return code == 0
 end
@@ -136,17 +114,18 @@ function M.on_exit()
 end
 
 function M.split_pane(direction, _)
+  log.debug('Splitting pane in direction: %s', direction)
   if not M.is_in_session() then
     return false
   end
 
-  local _, code = kitty_exec({ 'kitten', 'split_window.py', direction })
+  local code = api.kitty_cmd('split_window', direction)
 
   return code == 0
 end
 
 function M.update_layout_details()
-  kitty_exec({ 'ls' }, layout_details_callback)
+  api.kitty_cmd('ls')
 end
 
 return M
