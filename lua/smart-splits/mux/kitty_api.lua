@@ -153,7 +153,12 @@ function M.__update_data_from_socket()
       error(err)
     end
     local cleaned = remove_control_sequences(data)
-    local decoded = vim.json.decode(cleaned)
+    local ok, decoded = pcall(vim.json.decode, cleaned)
+    if not ok then
+      log.debug('Failed to decode Kitty response: %s', cleaned)
+      vim.uv.read_stop(M.client)
+      return
+    end
     M.data = vim.json.decode(decoded.data)
     vim.uv.read_stop(M.client)
   end)
