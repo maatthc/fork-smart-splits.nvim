@@ -5,6 +5,9 @@ local ESC = string.char(0x1b)
 local function create_tcp_client(host_or_path, port)
   local host = (host_or_path == 'localhost') and '127.0.0.1' or host_or_path
   local client = vim.uv.new_tcp()
+  if not client then
+    error('Failed to create TCP client')
+  end
   client:connect(host, port, function(err)
     if err then
       return error(err)
@@ -16,6 +19,9 @@ end
 
 local function create_unix_client(socket_path)
   local client = vim.uv.new_pipe(false)
+  if not client then
+    error('Failed to create TCP client')
+  end
   client:connect(socket_path)
   log.debug('Connected to Unix socket at %s', socket_path)
   return client
@@ -96,9 +102,18 @@ local function build_kitty_cmd(cmd, direction, amount)
       payload = { match = 'id:' .. vim.env.KITTY_WINDOW_ID, self = true, increment = increment, axis = axis },
     }
   elseif cmd == 'split_window' then
-    log.debug('Are this functions being used?')
+    local location = 'vsplit'
+    if direction == 'up' or direction == 'down' then
+      location = 'hsplit'
+    end
     command = {
-      cmd = cmd,
+      cmd = 'launch',
+      payload = {
+        -- cwd = 'current',
+        -- match = 'id:' .. vim.env.KITTY_WINDOW_ID,
+        -- self = true,
+        location = location,
+      },
     }
   else
     error('Unsupported command: ' .. cmd)
@@ -153,14 +168,22 @@ function M.__update_data_from_socket()
       error(err)
     end
     local cleaned = remove_control_sequences(data)
+    if cleaned == nil then
+      log.debug('No valid data received from Kitty socket')
+      vim.uv.read_stop(M.client)
+      return
+    end
     local ok, decoded = pcall(vim.json.decode, cleaned)
     if not ok then
       log.debug('Failed to decode Kitty response: %s', cleaned)
       vim.uv.read_stop(M.client)
       return
     end
-    M.data = vim.json.decode(decoded.data)
-    vim.uv.read_stop(M.client)
+    ok, decoded = pcall(vim.json.decode, decoded.data)
+    if ok then
+      M.data = decoded
+      vim.uv.read_stop(M.client)
+    end
   end)
 end
 
