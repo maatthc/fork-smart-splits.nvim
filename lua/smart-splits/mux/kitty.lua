@@ -11,6 +11,10 @@ local dir_keys_kitty = {
   [Direction.down] = 'bottom',
 }
 
+-- When sucessfully moving to a new pane, we have to wait for Kitty to report the active pane before we can get the correct ID. This is to avoid spliting a new pane when it happens
+FAKE_PANE_ID = -1
+local current_fake_pane_id = nil
+
 local function get_active_tab()
   local layout_details = api.get_data()
   if #layout_details == 0 then
@@ -38,18 +42,11 @@ local function get_active_tab()
   return active_tab
 end
 
----@type SmartSplitsMultiplexer
-local M = {}
-
-M.type = 'kitty'
-
-function M.current_pane_id()
+local function get_active_pane()
   local active_tab = get_active_tab()
-
   if not active_tab then
     return nil
   end
-
   local active_pane = utils.tbl_find(active_tab.windows, function(window)
     -- different versions of Kitty have different output for this
     return (window.is_active or window.is_active_window) and window.is_focused
@@ -58,12 +55,46 @@ function M.current_pane_id()
   if not active_pane then
     return nil
   end
+  return active_pane
+end
+
+local function get_neighbors_at(direction)
+  local active_pane = get_active_pane()
+  if not active_pane then
+    return nil
+  end
+  direction = dir_keys_kitty[direction]
+  log.debug('Current neighbors : %s', vim.inspect(active_pane.neighbors))
+  log.debug('Current neighbors at %s: %s', direction, vim.inspect(active_pane.neighbors[direction]))
+  return active_pane.neighbors[direction]
+end
+
+---@type SmartSplitsMultiplexer
+local M = {} ---@diagnostic disable-line
+
+M.type = 'kitty'
+
+function M.current_pane_id()
+  log.debug(
+    'Getting current pane id: %s, current fake pane id: %s',
+    get_active_pane().id,
+    tostring(current_fake_pane_id)
+  )
+  if current_fake_pane_id then
+    current_fake_pane_id = nil
+    return FAKE_PANE_ID
+  end
+  local active_pane = get_active_pane()
+
+  if not active_pane then
+    return nil
+  end
 
   return active_pane.id
 end
 
-function M.current_pane_at_edge()
-  return false
+function M.current_pane_at_edge(direction)
+  return get_neighbors_at(direction) == nil
 end
 
 function M.is_in_session()
@@ -86,9 +117,14 @@ function M.next_pane(direction)
     return false
   end
 
-  direction = dir_keys_kitty[direction] ---@diagnostic disable-line
-  local code = api.kitty_cmd('neighboring_window', direction)
-  return code == 0
+  direction = dir_keys_kitty[direction]
+  local ok = api.kitty_cmd('neighboring_window', direction)
+  if not ok then
+    return false
+  end
+  current_fake_pane_id = FAKE_PANE_ID
+  M.update_mux_layout_details()
+  return true
 end
 
 function M.resize_pane(direction, amount)
