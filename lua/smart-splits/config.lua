@@ -126,14 +126,15 @@ function M.setup(new_config)
   then
     mux_utils.startup()
   end
-
-  -- check for incompatible settings
-  if mux_utils.are_we_kitty() and config.multiplexer_integration == Multiplexer.kitty and config.at_edge == 'wrap' then
-    local msg = 'Kitty multiplexer integration does not support wrapping at edge, setting to "stop"'
-    log.warn(msg)
-    vim.notify_once(msg, vim.log.levels.WARN, { title = 'smart-splits.nvim' })
-    config.at_edge = AtEdgeBehavior.stop
-  end
+  -- Too expensive to check the version on startup: version 0.45.0 is 8 months old at the time of this writing, so hopefully users have updated by now. If users report issues with Kitty integration, we can add this check back in.
+  -- -- check for incompatible Kitty version
+  -- if mux_utils.are_we_kitty() and config.multiplexer_integration == Multiplexer.kitty and false then -- and kitty version is less than 0.45.0
+  --   local msg =
+  --     'Kitty version greater than 0.45.0 is required for kitty multiplexer integration. Please update Kitty or downgrade "smart-splits.nvim" to version < 2.1.0'
+  --   log.warn(msg)
+  --   vim.notify_once(msg, vim.log.levels.WARN, { title = 'smart-splits.nvim' })
+  --   config.multiplexer_integration = false
+  -- end
 end
 
 return M
