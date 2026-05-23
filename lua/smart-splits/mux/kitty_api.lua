@@ -55,7 +55,8 @@ local function parse_address(addr)
   return nil, 'Invalid address format: ' .. addr
 end
 
-local function create_client(addr)
+local function create_client()
+  local addr = vim.env.KITTY_LISTEN_ON
   if not addr or addr == '' then
     return nil
   end
@@ -74,6 +75,9 @@ local function create_client(addr)
 end
 
 local is_end_of_message = function(data)
+  return data:sub(-2) == ESC .. '\\'
+end
+
 local remove_control_sequences = function(data)
   local pattern = ESC .. 'P@kitty%-cmd(.-)' .. ESC .. '\\'
   local cleaned = data:gsub(pattern, '%1')
@@ -110,9 +114,6 @@ local function build_kitty_cmd(cmd, direction, amount)
     command = {
       cmd = 'launch',
       payload = {
-        -- cwd = 'current',
-        -- match = 'id:' .. vim.env.KITTY_WINDOW_ID,
-        -- self = true,
         location = location,
       },
     }
@@ -122,7 +123,7 @@ local function build_kitty_cmd(cmd, direction, amount)
 
   command.no_response = no_response
   -- Kitty docs: "Using a version greater than the version of the kitty instance you are talking to, will cause a failure."
-  command.version = { 0, 14, 2 }
+  command.version = { 0, 45, 0 }
   command.kitty_window_id = tonumber(vim.env.KITTY_WINDOW_ID) or 0
   if password ~= '' then
     command.password = password
@@ -138,7 +139,7 @@ end
 
 M = {
   data = {},
-  client = create_client(vim.env.KITTY_LISTEN_ON),
+  client = create_client(),
 }
 
 function M.kitty_cmd(cmd, direction, amount)
@@ -154,7 +155,7 @@ end
 
 function M.refresh()
   if not M.client then
-    return
+    create_client()
   end
   M.kitty_cmd('ls')
 end
@@ -164,26 +165,37 @@ function M.get_data()
 end
 
 function M.__update_data_from_socket()
+  local read_buffer = ''
   vim.uv.read_start(M.client, function(err, data)
     if err then
       error(err)
-    end
-    local cleaned = remove_control_sequences(data)
-    if cleaned == nil then
-      log.debug('No valid data received from Kitty socket')
-      vim.uv.read_stop(M.client)
-      return
-    end
-    local ok, decoded = pcall(vim.json.decode, cleaned)
-    if not ok then
-      log.debug('Failed to decode Kitty response: %s', cleaned)
-      vim.uv.read_stop(M.client)
-      return
-    end
-    ok, decoded = pcall(vim.json.decode, decoded.data)
-    if ok then
-      M.data = decoded
-      vim.uv.read_stop(M.client)
+    else
+      read_buffer = read_buffer .. data
+      if not is_end_of_message(read_buffer) then
+        log.debug(
+          '------------------------------Received %s from Kitty buT not a complete message yet...',
+          #read_buffer
+        )
+        return
+      end
+      local cleaned = remove_control_sequences(read_buffer)
+      read_buffer = ''
+      if cleaned == nil then
+        log.debug('No valid data received from Kitty socket.')
+        vim.uv.read_stop(M.client)
+        return
+      end
+      local ok, decoded = pcall(vim.json.decode, cleaned)
+      if not ok then
+        log.debug('Failed to decode Kitty response: %s', cleaned)
+        vim.uv.read_stop(M.client)
+        return
+      end
+      ok, decoded = pcall(vim.json.decode, decoded.data)
+      if ok then
+        M.data = decoded
+        vim.uv.read_stop(M.client)
+      end
     end
   end)
 end
