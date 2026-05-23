@@ -152,7 +152,7 @@ function M.split_pane(direction, _)
 
   local code = api.kitty_cmd('split_window', direction)
 
-  M.update_mux_layout_details()
+  -- M.update_mux_layout_details()
   return code == 0
 end
 

@@ -173,7 +173,7 @@ function M.__update_data_from_socket()
       read_buffer = read_buffer .. data
       if not is_end_of_message(read_buffer) then
         log.debug(
-          '------------------------------Received %s from Kitty buT not a complete message yet...',
+          '------------------------------Received %s from Kitty but not a complete message yet...',
           #read_buffer
         )
         return
