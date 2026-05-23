@@ -41,8 +41,6 @@ With Packer.nvim:
 use('mrjones2014/smart-splits.nvim')
 -- or use a specific version
 use({ 'mrjones2014/smart-splits.nvim', tag = 'v1.0.0' })
--- to use Kitty multiplexer support, run the post install hook
-use({ 'mrjones2014/smart-splits.nvim', run = './kitty/install-kittens.bash' })
 ```
 
 With Lazy.nvim:
@@ -51,8 +49,6 @@ With Lazy.nvim:
 { 'mrjones2014/smart-splits.nvim' }
 -- or use a specific version, or a range of versions using lazy.nvim's version API
 { 'mrjones2014/smart-splits.nvim', version = '>=1.0.0' }
--- to use Kitty multiplexer support, run the post install hook
-{ 'mrjones2014/smart-splits.nvim', build = './kitty/install-kittens.bash' }
 ```
 
 ## Configuration
@@ -105,8 +101,6 @@ require('smart-splits').setup({
   --    split(), -- utility function to split current Neovim pane in the current direction
   --    wrap(), -- utility function to wrap to opposite Neovim pane
   -- }
-  -- NOTE: `at_edge = 'wrap'` is not supported on Kitty terminal
-  -- multiplexer, as there is no way to determine layout via the CLI
   at_edge = 'wrap',
   -- Desired behavior when the current window is floating:
   -- 'previous' => Focus previous Vim window and perform action
@@ -496,8 +490,9 @@ return {
 > have minimal impact on your startup time. It adds about 0.07ms on my setup.
 
 > [!NOTE]
-> The `config.at_edge = 'wrap'` option is not supoprted in Kitty terminal multiplexer due to inability to determine
-> pane layout from CLI.
+> Some features behave differently depending on which window layout is currently active in Kitty. Or not work at all.
+> For example, the "wrap" behavior of moving between panes when at the edge only works in the "horizontal" or "vertical" layouts.
+> Consult the [Arrange windows](https://sw.kovidgoyal.net/kitty/layouts/) section of the Kitty documentation for more information on how different layouts behave.
 
 By default the plugin sets a kitty user-var `IS_NVIM` when it loads. You can take advantage of this together with kittys
 [conditional mappings feature](https://sw.kovidgoyal.net/kitty/mapping/#conditional-mappings-depending-on-the-state-of-the-focused-window) to use the same keybind for both kitty and neovim.
@@ -584,8 +579,6 @@ For troubleshooting, please refer to Kitty's [SSH remote control documentation](
 ##### Credits
 
 Thanks @knubie for inspiration for the Kitty implementation from [vim-kitty-navigator](https://github.com/knubie/vim-kitty-navigator).
-
-Thanks to @chancez for the relative resize [Python kitten](https://github.com/chancez/dotfiles/blob/badc69d3895a6a942285126b8c372a55d77533e1/kitty/.config/kitty/relative_resize.py).
 
 ### Multiplexer Lua API
 
