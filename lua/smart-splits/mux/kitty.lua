@@ -75,11 +75,6 @@ local M = {} ---@diagnostic disable-line
 M.type = 'kitty'
 
 function M.current_pane_id()
-  log.debug(
-    'Getting current pane id: %s, current fake pane id: %s',
-    get_active_pane().id,
-    tostring(current_fake_pane_id)
-  )
   if current_fake_pane_id then
     current_fake_pane_id = nil
     return FAKE_PANE_ID

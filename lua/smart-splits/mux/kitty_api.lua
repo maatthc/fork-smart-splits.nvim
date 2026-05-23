@@ -73,6 +73,7 @@ local function create_client(addr)
   return create_unix_client(host_or_path)
 end
 
+local is_end_of_message = function(data)
 local remove_control_sequences = function(data)
   local pattern = ESC .. 'P@kitty%-cmd(.-)' .. ESC .. '\\'
   local cleaned = data:gsub(pattern, '%1')
